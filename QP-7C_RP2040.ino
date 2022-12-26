@@ -170,16 +170,18 @@ void transmitting(){
     recieve();
     Tx_Start = 0;
   }
+  /*  //for monitoring the audio signal recived from PC
   for (int i=0;i<24;i++){
-    //rp.USBwrite(rx_adc, rx_adc);
     rp.USBwrite(rp.monodata[i], rp.monodata[i]);
   }
+  */
 }
 
 void receiving() {
   rp.USBread2();  // read in the USB Audio buffer (myRawBuffer2) for control of ADC timing and detection of the transmitting
-  if (rp.monodata[0] > 0){
+  if (rp.monodata[0] != 0){
     Tx_Start = 1;
+    return;
   }
   freqChange();
   int16_t rx_adc = adc() - adc_offset;    //read ADC data
