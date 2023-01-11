@@ -126,9 +126,8 @@ void setup() {
 
   //read the DC offset value of ADC input (about 0.6V)----- 
   delay(500);
-  for (int i=0; i<10; i++) {
-    adc_offset = adc();
-  }
+  adc_fifo_drain ();
+  adc_offset = adc();
 }
 
 void loop() {
@@ -141,7 +140,7 @@ void transmitting(){
   rp.USBread();
   for (int i=0;i<24;i++){
     int16_t mono = rp.monodata[i];
-    if ((mono_prev < 0) && (mono > 0)) {
+    if ((mono_prev < 0) && (mono >= 0)) {
       int16_t diference = mono - mono_prev;
       // x=0付近のsin関数をテーラー展開の第1項まで(y=xで近似）
       float delta = (float)mono_prev / (float)diference;
@@ -161,7 +160,7 @@ void transmitting(){
       mono_prev = mono;
     }
   }
-  if ((Tx_modulation == 1) && (Tx_modulation_counter > 9)){  //inhibit the frequency change faster than 5mS
+  if ((Tx_modulation == 1) && (Tx_modulation_counter > 10)){  //inhibit the frequency change faster than 5mS
     audio_freq = 0;
     for (int i=0;i<cycle;i++){
       audio_freq += cycle_period[i];
@@ -225,10 +224,12 @@ void recieve(){
     digitalWrite(pin_GREEN, 0);
     //digitalWrite(pin_BLUE, 1);
   }
-   // initializaztion of monodata[]
+  // initializaztion of monodata[]
   for (int i = 0; i < 24; i++) {
     rp.monodata[i] = 0;
   }
+  // initializaztion of adc fifo
+  adc_fifo_drain ();
 }
 
 void freqChange(){
@@ -246,6 +247,7 @@ void freqChange(){
     pixels.setPixelColor(0, colors[C_freq]);
     pixels.show();
     delay(100);
+    adc_fifo_drain ();
     adc_offset = adc();
   }
 }
