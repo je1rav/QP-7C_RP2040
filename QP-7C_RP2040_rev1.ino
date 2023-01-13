@@ -40,13 +40,16 @@ int Tx_Status = 0; //0=RX, 1=TX
 int Tx_Start = 0;  //0=RX, 1=TX
 int Tx_modulation = 0; //flag for freqency modulation in transmitting
 int16_t Tx_modulation_counter = 0; //counter using to inhibit the frequency change faster than 0.5x mS in trasnmitting freqency modulation
+int not_TX_first = 0;
 
 //Audio signal frequency determination
 int16_t mono_prev=0;  
+int16_t mono_preprev=0;  
 float delta_prev=0;
 int16_t sampling=0;
 int16_t cycle=0;
-float cycle_period[16];
+int32_t cycle_frequency[32];
+
 
 //ADC offset for Reciever
 int16_t adc_offset = 0;   
@@ -58,16 +61,14 @@ class rp2040Audio {
     rp2040Audio();
     void USB_UAC();
     void USBread();
-    void USBread2();
     void USBwrite(int16_t left,int16_t right);
     int16_t monodata[24];
+    uint16_t pcCounter=0;
+    uint16_t nBytes=0;
   private:
     USBAudio* audio;
     uint8_t myRawBuffer[96]; //24 sampling (= 0.5 ms at 48000 Hz sampling) data sent from PC are recived.
-    uint8_t myRawBuffer2[24]; //6 sampling = 8 kHz at 48 kHz sampling
     int16_t pcBuffer16[48];  //24 sampling date are written to PC in one packet.
-    uint16_t pcCounter=0;
-    uint16_t nBytes=0;
  };
 
 rp2040Audio rp;
@@ -137,10 +138,13 @@ void loop() {
 
 void transmitting(){
   int64_t audio_freq;
-  rp.USBread();
   for (int i=0;i<24;i++){
     int16_t mono = rp.monodata[i];
     if ((mono_prev < 0) && (mono >= 0)) {
+      if ((mono == 0) && (mono_prev * 1.9 - mono_preprev < 0)) {    //Detect the sudden drop to zero due to the end of transmission
+        Tx_Start = 0;
+        break;
+      }
       int16_t diference = mono - mono_prev;
       // x=0付近のsin関数をテーラー展開の第1項まで(y=xで近似）
       float delta = (float)mono_prev / (float)diference;
@@ -148,51 +152,65 @@ void transmitting(){
       audio_freq = AUDIOSAMPLING*100.0/period; // in 0.01Hz    
       if ((audio_freq>20000) && (audio_freq<300000)){
         Tx_modulation = 1;
-        cycle_period[cycle]=audio_freq;
+        cycle_frequency[cycle]=audio_freq;
         cycle++;
       }
       delta_prev = delta;
       sampling=0;
+      mono_preprev = mono_prev;
       mono_prev = mono;     
+    }
+    else if ((not_TX_first == 1) && (mono_prev == 0) && (mono == 0)) {        //Detect non-transmission
+      Tx_Start = 0;
+      break;
     }
     else {
       sampling++;
+      mono_preprev = mono_prev;
       mono_prev = mono;
     }
   }
-  if ((Tx_modulation == 1) && (Tx_modulation_counter > 10)){  //inhibit the frequency change faster than 5mS
+  if (Tx_Start == 0){
+    Tx_modulation = 0;
+    Tx_modulation_counter = 0;
+    cycle = 0;
+    recieve();
+    return;
+  }
+  if ((Tx_modulation == 1) && (Tx_modulation_counter > 10)){          //inhibit the frequency change faster than 5mS
     audio_freq = 0;
     for (int i=0;i<cycle;i++){
-      audio_freq += cycle_period[i];
+      audio_freq += cycle_frequency[i];
     }
-    audio_freq = audio_freq / (float)cycle;
+    audio_freq = audio_freq / cycle;
     transmit(audio_freq);
     Tx_modulation = 0;
     Tx_modulation_counter = 0;
     cycle = 0;
   }
   Tx_modulation_counter++;
-  if (sampling > 4800){
-    recieve();
-    Tx_Start = 0;
-  }
   
   /* //for mmonitering of the audio signal recived from PC
   for (int i=0;i<24;i++){
     rp.USBwrite(rp.monodata[i], rp.monodata[i]);
   }
   */
+  rp.USBread();
+  not_TX_first = 1;
 }
 
 void receiving() {
-  rp.USBread2();  // read in the USB Audio buffer (myRawBuffer2) to check the transmitting
-  if (rp.monodata[0] != 0){
-    Tx_Start = 1;
-    return;
+  rp.USBread();  // read in the USB Audio buffer (myRawBuffer2) to check the transmitting
+  for (int i=0;i<24;i++){
+    if (rp.monodata[i] != 0){
+      Tx_Start = 1;
+      not_TX_first = 0;
+      return;
+    }
   }
   freqChange();
   int16_t rx_adc = adc() - adc_offset; //read ADC data (8kHz sampling)
-  // write stereo data to computer
+  // write the same 6 stereo data to PC for 48kHz sampling (up-sampling: 8kHz x 6 = 48 kHz)
   for (int i=0;i<6;i++){
     rp.USBwrite(rx_adc, rx_adc);
   }
@@ -223,11 +241,15 @@ void recieve(){
     digitalWrite(pin_RED, 1);
     digitalWrite(pin_GREEN, 0);
     //digitalWrite(pin_BLUE, 1);
+
   }
   // initializaztion of monodata[]
   for (int i = 0; i < 24; i++) {
     rp.monodata[i] = 0;
-  }
+  } 
+  // initializaztion of ADC data write  counter
+  rp.pcCounter=0;
+  rp.nBytes=0;
   // initializaztion of adc fifo
   adc_fifo_drain ();
 }
@@ -263,6 +285,7 @@ int16_t adc() {
 //USB Audio modified from pdmRP2040.cpp in https://github.com/tierneytim/Pico-USB-audio
 rp2040Audio::rp2040Audio() {
 }
+
 void rp2040Audio::USB_UAC() {
  audio= new USBAudio(true, AUDIOSAMPLING, 2, AUDIOSAMPLING, 2);
  // initializaztion of monodata[]
@@ -270,6 +293,7 @@ void rp2040Audio::USB_UAC() {
    monodata[i] = 0;
  }
 }
+
 void rp2040Audio::USBread() {
   if (audio->read(myRawBuffer, sizeof(myRawBuffer))) {
     int16_t *lessRawBuffer = (int16_t *)myRawBuffer;
@@ -284,16 +308,6 @@ void rp2040Audio::USBread() {
       int16_t mono = (outL + outR) / 2;
       monodata[i] = mono;
     }
-  }
-}
-
-void rp2040Audio::USBread2() {
-  if (audio->read(myRawBuffer2, sizeof(myRawBuffer2))) {
-    int16_t *lessRawBuffer = (int16_t *)myRawBuffer2;
-    int16_t outL = *lessRawBuffer;
-    lessRawBuffer++;
-    int16_t outR = *lessRawBuffer;
-    monodata[0] = (outL + outR) / 2;
   }
 }
 
