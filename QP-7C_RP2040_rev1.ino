@@ -190,7 +190,7 @@ void transmitting(){
   }
   Tx_modulation_counter++;
   
-  /* //for mmonitering of the audio signal recived from PC
+  /* //monitering the audio signal recived from PC
   for (int i=0;i<24;i++){
     rp.USBwrite(rp.monodata[i], rp.monodata[i]);
   }
