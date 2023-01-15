@@ -200,7 +200,7 @@ void transmitting(){
 }
 
 void receiving() {
-  rp.USBread();  // read in the USB Audio buffer (myRawBuffer2) to check the transmitting
+  rp.USBread();  // read the USB Audio buffer (myRawBuffer)
   for (int i=0;i<24;i++){
     if (rp.monodata[i] != 0){
       Tx_Start = 1;
