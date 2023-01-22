@@ -1,3 +1,22 @@
+/*
+ * Copyright (C) 2023- Hitoshi Kawaji <je1rav@gmail.com>
+ * 
+ * QP-7C_RP2040.ino.
+ * 
+ * QP-7C_RP2040.ino is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ * 
+ * QP-7C_RP2040.ino is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+ 
 #include "Arduino.h"
 #include "mbed.h"
 #include "USBAudio.h"
@@ -25,7 +44,7 @@ extern uint64_t Freq_table[N_FREQ]={FREQ_0,FREQ_1}; // Freq_table[N_FREQ]={FREQ_
 #define pin_LED_POWER 11 //pin for NEOPIXEL LED power (output)
 #define pin_LED 12 //pin for NEOPIXEL LED (output)
 
-#include <si5351.h>
+#include <si5351.h>  //"Etherkit Si5351"
 Si5351 si5351;
 
 #include <Adafruit_NeoPixel.h>
@@ -38,8 +57,7 @@ uint64_t RF_freq;   // RF frequency (Hz)
 int C_freq = 0;  //FREQ_x: In this case, FREQ_0 is sellected as the initial freqency.
 int Tx_Status = 0; //0=RX, 1=TX
 int Tx_Start = 0;  //0=RX, 1=TX
-int Tx_modulation = 0; //flag for freqency modulation in transmitting
-int16_t Tx_modulation_counter = 0; //counter using to inhibit the frequency change faster than 0.5x mS in trasnmitting freqency modulation
+int16_t Tx_modulation_counter = 0; //counter using to inhibit too frequent change in trasnmitting freqency modulation
 int not_TX_first = 0;
 
 //Audio signal frequency determination
@@ -151,7 +169,6 @@ void transmitting(){
       float period = (1.0 + delta_prev) + (float)sampling - delta;
       audio_freq = AUDIOSAMPLING*100.0/period; // in 0.01Hz    
       if ((audio_freq>20000) && (audio_freq<300000)){
-        Tx_modulation = 1;
         cycle_frequency[cycle]=audio_freq;
         cycle++;
       }
@@ -171,26 +188,24 @@ void transmitting(){
     }
   }
   if (Tx_Start == 0){
-    Tx_modulation = 0;
     Tx_modulation_counter = 0;
     cycle = 0;
     recieve();
     return;
   }
-  if ((Tx_modulation == 1) && (Tx_modulation_counter > 10)){          //inhibit the frequency change faster than 5mS
+  if ((cycle > 0) && (Tx_modulation_counter > 10)){          //inhibit too frequent change of transmitting frequency
     audio_freq = 0;
     for (int i=0;i<cycle;i++){
       audio_freq += cycle_frequency[i];
     }
     audio_freq = audio_freq / cycle;
     transmit(audio_freq);
-    Tx_modulation = 0;
     Tx_modulation_counter = 0;
     cycle = 0;
   }
   Tx_modulation_counter++;
   
-  /* //monitering the audio signal recived from PC
+  /* //for monitering the audio signal recived from PC
   for (int i=0;i<24;i++){
     rp.USBwrite(rp.monodata[i], rp.monodata[i]);
   }
@@ -200,7 +215,7 @@ void transmitting(){
 }
 
 void receiving() {
-  rp.USBread();  // read the USB Audio buffer (myRawBuffer)
+  rp.USBread();  // read in the USB Audio buffer (myRawBuffer2) to check the transmitting
   for (int i=0;i<24;i++){
     if (rp.monodata[i] != 0){
       Tx_Start = 1;
