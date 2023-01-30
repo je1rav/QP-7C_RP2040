@@ -35,12 +35,12 @@
 //#define FREQ_6 7074000 // in Hz
 extern uint64_t Freq_table[N_FREQ]={FREQ_0,FREQ_1}; // Freq_table[N_FREQ]={FREQ_0,FREQ_1, ...}
 
-#define pin_RX 27 //pin for RX switch (D2,output)
-#define pin_TX 28 //pin for TX switch (D3,output)
+#define pin_RX 27 //pin for RX switch (D1,output)
+#define pin_TX 28 //pin for TX switch (D2,output)
 #define pin_SW 3 //pin for freq change switch (D10,input)
 #define pin_RED 17 //pin for Red LED (output)
 #define pin_GREEN 16 //pin for GREEN LED (output)
-#define pin_BLUE 25 //pin for BLUE LED (output)
+#define pin_BLUE 25 //pin for BLUE LED (output) 
 #define pin_LED_POWER 11 //pin for NEOPIXEL LED power (output)
 #define pin_LED 12 //pin for NEOPIXEL LED (output)
 
@@ -57,8 +57,9 @@ uint64_t RF_freq;   // RF frequency (Hz)
 int C_freq = 0;  //FREQ_x: In this case, FREQ_0 is sellected as the initial freqency.
 int Tx_Status = 0; //0=RX, 1=TX
 int Tx_Start = 0;  //0=RX, 1=TX
-int16_t Tx_modulation_counter = 0; //counter using to inhibit too frequent change in trasnmitting freqency modulation
 int not_TX_first = 0;
+uint32_t Tx_last_mod_time;
+uint32_t Tx_last_time;
 
 //Audio signal frequency determination
 int16_t mono_prev=0;  
@@ -66,7 +67,7 @@ int16_t mono_preprev=0;
 float delta_prev=0;
 int16_t sampling=0;
 int16_t cycle=0;
-int32_t cycle_frequency[32];
+int32_t cycle_frequency[34];
 
 
 //ADC offset for Reciever
@@ -83,6 +84,7 @@ class rp2040Audio {
     int16_t monodata[24];
     uint16_t pcCounter=0;
     uint16_t nBytes=0;
+    bool USB_read;
   private:
     USBAudio* audio;
     uint8_t myRawBuffer[96]; //24 sampling (= 0.5 ms at 48000 Hz sampling) data sent from PC are recived.
@@ -156,62 +158,65 @@ void loop() {
 
 void transmitting(){
   int64_t audio_freq;
-  for (int i=0;i<24;i++){
-    int16_t mono = rp.monodata[i];
-    if ((mono_prev < 0) && (mono >= 0)) {
-      if ((mono == 0) && (mono_prev * 1.9 - mono_preprev < 0)) {    //Detect the sudden drop to zero due to the end of transmission
+  if (rp.USB_read) {
+    for (int i=0;i<24;i++){
+      int16_t mono = rp.monodata[i];
+      if ((mono_prev < 0) && (mono >= 0)) {
+        if ((mono == 0) && (((float)mono_prev * 1.8 - (float)mono_preprev < 0.0) || ((float)mono_prev * 2.02 - (float)mono_preprev > 0.0))) {    //Detect the sudden drop to zero due to the end of transmission
+          Tx_Start = 0;
+          break;
+        }
+        int16_t diference = mono - mono_prev;
+        // x=0付近のsin関数をテーラー展開の第1項まで(y=xで近似）
+        float delta = (float)mono_prev / (float)diference;
+
+        
+        float period = (1.0 + delta_prev) + (float)sampling - delta;
+        audio_freq = AUDIOSAMPLING*100.0/period; // in 0.01Hz    
+        if ((audio_freq>20000) && (audio_freq<300000)){
+          cycle_frequency[cycle]=audio_freq;
+          cycle++;
+        }
+        delta_prev = delta;
+        sampling=0;
+        mono_preprev = mono_prev;
+        mono_prev = mono;     
+      }
+      else if ((not_TX_first == 1) && (mono_prev == 0) && (mono == 0)) {        //Detect non-transmission
         Tx_Start = 0;
         break;
       }
-      int16_t diference = mono - mono_prev;
-      // x=0付近のsin関数をテーラー展開の第1項まで(y=xで近似）
-      float delta = (float)mono_prev / (float)diference;
-      float period = (1.0 + delta_prev) + (float)sampling - delta;
-      audio_freq = AUDIOSAMPLING*100.0/period; // in 0.01Hz    
-      if ((audio_freq>20000) && (audio_freq<300000)){
-        cycle_frequency[cycle]=audio_freq;
-        cycle++;
+      else {
+        sampling++;
+        mono_preprev = mono_prev;
+        mono_prev = mono;
       }
-      delta_prev = delta;
-      sampling=0;
-      mono_preprev = mono_prev;
-      mono_prev = mono;     
     }
-    else if ((not_TX_first == 1) && (mono_prev == 0) && (mono == 0)) {        //Detect non-transmission
-      Tx_Start = 0;
-      break;
+    if (Tx_Start == 0){
+      cycle = 0;
+      recieve();
+      return;
     }
-    else {
-      sampling++;
-      mono_preprev = mono_prev;
-      mono_prev = mono;
+    if ((cycle > 0) && (millis() - Tx_last_mod_time > 5)){          //inhibit the frequency change faster than 5mS
+      audio_freq = 0;
+      for (int i=0;i<cycle;i++){
+        audio_freq += cycle_frequency[i];
+      }
+      audio_freq = audio_freq / cycle;
+      transmit(audio_freq);
+      cycle = 0;
+      Tx_last_mod_time = millis();
     }
+    not_TX_first = 1;
+    Tx_last_time = millis();
   }
-  if (Tx_Start == 0){
-    Tx_modulation_counter = 0;
+  else if (millis()-Tx_last_time > 50) {     // If USBaudio data is not received for more than 50 ms during transmission, the system moves to receive. 
+    Tx_Start = 0;
     cycle = 0;
     recieve();
     return;
-  }
-  if ((cycle > 0) && (Tx_modulation_counter > 10)){          //inhibit too frequent change of transmitting frequency
-    audio_freq = 0;
-    for (int i=0;i<cycle;i++){
-      audio_freq += cycle_frequency[i];
-    }
-    audio_freq = audio_freq / cycle;
-    transmit(audio_freq);
-    Tx_modulation_counter = 0;
-    cycle = 0;
-  }
-  Tx_modulation_counter++;
-  
-  /* //for monitering the audio signal recived from PC
-  for (int i=0;i<24;i++){
-    rp.USBwrite(rp.monodata[i], rp.monodata[i]);
-  }
-  */
+  }  
   rp.USBread();
-  not_TX_first = 1;
 }
 
 void receiving() {
@@ -241,6 +246,9 @@ void transmit(int64_t freq){
     digitalWrite(pin_RED, 0);
     digitalWrite(pin_GREEN, 1);
     //digitalWrite(pin_BLUE, 1);
+      
+    // initializaztion of adc fifo
+    adc_fifo_drain ();
   }
   si5351.set_freq((RF_freq*100 + freq), SI5351_CLK0);  
 }
@@ -256,13 +264,12 @@ void recieve(){
     digitalWrite(pin_RED, 1);
     digitalWrite(pin_GREEN, 0);
     //digitalWrite(pin_BLUE, 1);
-
   }
   // initializaztion of monodata[]
   for (int i = 0; i < 24; i++) {
     rp.monodata[i] = 0;
   } 
-  // initializaztion of ADC data write  counter
+  // initializaztion of ADC data write counter
   rp.pcCounter=0;
   rp.nBytes=0;
   // initializaztion of adc fifo
@@ -310,7 +317,8 @@ void rp2040Audio::USB_UAC() {
 }
 
 void rp2040Audio::USBread() {
-  if (audio->read(myRawBuffer, sizeof(myRawBuffer))) {
+  USB_read = audio->read(myRawBuffer, sizeof(myRawBuffer));
+  if (USB_read) {
     int16_t *lessRawBuffer = (int16_t *)myRawBuffer;
     for (int i = 0; i < 24; i++) {
       // the left value;
