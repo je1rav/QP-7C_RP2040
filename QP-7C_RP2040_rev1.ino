@@ -220,13 +220,11 @@ void transmitting(){
 }
 
 void receiving() {
-  rp.USBread();  // read in the USB Audio buffer (myRawBuffer2) to check the transmitting
-  for (int i=0;i<24;i++){
-    if (rp.monodata[i] != 0){
-      Tx_Start = 1;
-      not_TX_first = 0;
-      return;
-    }
+  rp.USBread();  // read in the USB Audio buffer (myRawBuffer) to check the transmitting
+  if (rp.USB_read) {
+    Tx_Start = 1;
+    not_TX_first = 0;
+    return;
   }
   freqChange();
   int16_t rx_adc = adc() - adc_offset; //read ADC data (8kHz sampling)
