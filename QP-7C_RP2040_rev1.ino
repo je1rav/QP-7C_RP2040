@@ -26,7 +26,7 @@
 #define AUDIOSAMPLING 48000  // USB Audio sampling frequency
 
 #define N_FREQ 2 // number of using RF frequencies　(<= 7)
-#define FREQ_0 7041000 // RF freqency in Hz
+#define FREQ_0 7041000 // RF frequency in Hz
 #define FREQ_1 7074000 // in Hz
 //#define FREQ_2 7074000 // in Hz
 //#define FREQ_3 7074000 // in Hz
@@ -54,7 +54,7 @@ uint8_t color = 0;
 uint32_t colors[] = {pixels.Color(BRIGHTNESS, 0, 0), pixels.Color(0, BRIGHTNESS, 0), pixels.Color(0, 0, BRIGHTNESS), pixels.Color(BRIGHTNESS, BRIGHTNESS, 0), pixels.Color(BRIGHTNESS, 0, BRIGHTNESS), pixels.Color(0, BRIGHTNESS, BRIGHTNESS), pixels.Color(BRIGHTNESS, BRIGHTNESS, BRIGHTNESS)};
   
 uint64_t RF_freq;   // RF frequency (Hz)
-int C_freq = 0;  //FREQ_x: In this case, FREQ_0 is sellected as the initial freqency.
+int C_freq = 0;  //FREQ_x: In this case, FREQ_0 is selected as the initial frequency.
 int Tx_Status = 0; //0=RX, 1=TX
 int Tx_Start = 0;  //0=RX, 1=TX
 int not_TX_first = 0;
@@ -70,7 +70,7 @@ int16_t cycle=0;
 int32_t cycle_frequency[34];
 
 
-//ADC offset for Reciever
+//ADC offset for recieving
 int16_t adc_offset = 0;   
 
 //USB Audio modified from pdmAudio.h in https://github.com/tierneytim/Pico-USB-audio
@@ -87,7 +87,7 @@ class rp2040Audio {
     bool USB_read;
   private:
     USBAudio* audio;
-    uint8_t myRawBuffer[96]; //24 sampling (= 0.5 ms at 48000 Hz sampling) data sent from PC are recived.
+    uint8_t myRawBuffer[96]; //24 sampling (= 0.5 ms at 48000 Hz sampling) data sent from PC are received.
     int16_t pcBuffer16[48];  //24 sampling date are written to PC in one packet.
  };
 
@@ -110,7 +110,7 @@ void setup() {
   //ADC initialize ----- 
   adc_init();
   adc_select_input(0);                        //ADC input pin A0
-  adc_run(true);                              //ADC free running
+  adc_run(true);                              //start ADC free running
   adc_set_clkdiv(249.0);                      // 192kHz sampling  (48000 / (249.0 +1) = 192)
   adc_fifo_setup(true,false,0,false,false);   // fifo
   
@@ -136,7 +136,7 @@ void setup() {
   pixels.setPixelColor(0, colors[C_freq]);
   pixels.show();
 
-  //transciver initialization-----
+  //transceiver initialization-----
   si5351.output_enable(SI5351_CLK0, 0);   //TX osc. off
   si5351.output_enable(SI5351_CLK1, 1);   //RX osc. on
   digitalWrite(pin_TX,0);  //TX off
@@ -166,9 +166,9 @@ void transmitting(){
           Tx_Start = 0;
           break;
         }
-        int16_t diference = mono - mono_prev;
+        int16_t difference = mono - mono_prev;
         // x=0付近のsin関数をテーラー展開の第1項まで(y=xで近似）
-        float delta = (float)mono_prev / (float)diference;
+        float delta = (float)mono_prev / (float)difference;
 
         
         float period = (1.0 + delta_prev) + (float)sampling - delta;
@@ -194,7 +194,7 @@ void transmitting(){
     }
     if (Tx_Start == 0){
       cycle = 0;
-      recieve();
+      receive();
       return;
     }
     if ((cycle > 0) && (millis() - Tx_last_mod_time > 5)){          //inhibit the frequency change faster than 5mS
@@ -213,7 +213,7 @@ void transmitting(){
   else if (millis()-Tx_last_time > 50) {     // If USBaudio data is not received for more than 50 ms during transmission, the system moves to receive. 
     Tx_Start = 0;
     cycle = 0;
-    recieve();
+    receive();
     return;
   }  
   rp.USBread();
@@ -244,34 +244,33 @@ void transmit(int64_t freq){
     digitalWrite(pin_RED, 0);
     digitalWrite(pin_GREEN, 1);
     //digitalWrite(pin_BLUE, 1);
-      
-    // initializaztion of adc fifo
-    adc_fifo_drain ();
+
+    adc_run(false);                         //stop ADC free running
   }
   si5351.set_freq((RF_freq*100 + freq), SI5351_CLK0);  
 }
 
-void recieve(){
-  if (Tx_Status==1){
-    digitalWrite(pin_TX,0);  //TX off
-    digitalWrite(pin_RX,1);  //RX on
-    si5351.output_enable(SI5351_CLK0, 0);   //TX osc. off
-    si5351.set_freq(RF_freq*100, SI5351_CLK1);
-    si5351.output_enable(SI5351_CLK1, 1);   //RX osc. on
-    Tx_Status=0;
-    digitalWrite(pin_RED, 1);
-    digitalWrite(pin_GREEN, 0);
-    //digitalWrite(pin_BLUE, 1);
-  }
-  // initializaztion of monodata[]
+void receive(){
+  digitalWrite(pin_TX,0);  //TX off
+  digitalWrite(pin_RX,1);  //RX on
+  si5351.output_enable(SI5351_CLK0, 0);   //TX osc. off
+  si5351.set_freq(RF_freq*100, SI5351_CLK1);
+  si5351.output_enable(SI5351_CLK1, 1);   //RX osc. on
+  Tx_Status=0;
+  digitalWrite(pin_RED, 1);
+  digitalWrite(pin_GREEN, 0);
+  //digitalWrite(pin_BLUE, 1);
+    
+  // initialization of monodata[]
   for (int i = 0; i < 24; i++) {
     rp.monodata[i] = 0;
   } 
-  // initializaztion of ADC data write counter
+  
+  // initialization of ADC and the data write counter
   rp.pcCounter=0;
   rp.nBytes=0;
-  // initializaztion of adc fifo
-  adc_fifo_drain ();
+  adc_fifo_drain ();                     //initialization of adc fifo
+  adc_run(true);                         //start ADC free running
 }
 
 void freqChange(){
@@ -308,7 +307,7 @@ rp2040Audio::rp2040Audio() {
 
 void rp2040Audio::USB_UAC() {
  audio= new USBAudio(true, AUDIOSAMPLING, 2, AUDIOSAMPLING, 2);
- // initializaztion of monodata[]
+ // initialization of monodata[]
  for (int i = 0; i < 24; i++) {
    monodata[i] = 0;
  }
