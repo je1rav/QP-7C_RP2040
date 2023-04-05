@@ -198,7 +198,7 @@ https://www.jh4vaj.com/archives/37814
 
 
 ## QP-7Cミニ送信機とRP2040を使ったデジタルモードトランシーバー の追加7(2023/4/6)   
-###プログラムのコンパイルについて(”Seeed XIAO RP2040”は開発中止)   
+### プログラムのコンパイルについて(”Seeed XIAO RP2040”は開発中止)   
 Seeed XIAO RP2040のボードマネージャー”Seeed XIAO RP2040”が開発中止となり，Arduino IDEの1.8.19などでは，インストールできなくなっています．   
 Seeedの公式ページではArduino IDEで”Raspberry Pi Pico/RP2040”を使えと指示していますが，これはMbedベースではなく，このプログラムは動きません．   
 
