@@ -194,3 +194,42 @@ receive()文について，処理ルーチンの整理を行いました．
 ## QP-7Cミニ送信機とRP2040を使ったデジタルモードトランシーバーの追加6(2023/2/4)
 プログラムのコンパイル時に注意が必要なようです．　jh4vaj OMのwebページをご参照ください．  
 https://www.jh4vaj.com/archives/37814
+
+
+
+## QP-7Cミニ送信機とRP2040を使ったデジタルモードトランシーバー の追加7(2023/4/6)   
+###プログラムのコンパイルについて(”Seeed XIAO RP2040”は開発中止)   
+Seeed XIAO RP2040のボードマネージャー”Seeed XIAO RP2040”が開発中止となり，Arduino IDEの1.8.19などでは，インストールできなくなっています．   
+Seeedの公式ページではArduino IDEで”Raspberry Pi Pico/RP2040”を使えと指示していますが，これはMbedベースではなく，このプログラムは動きません．   
+
+一方で，Raspberry Pi Pico用の公式ボードマネージャー”Arduino Mbed OS RP2040 Boards”は，開発が続いていますので，
+”Seeed XIAO RP2040”の代わりに，こちらのボードマネージャーを使うことが考えられます．   
+しかし，大きな問題があります．   
+”Seeed XIAO RP2040” ver2.7.2では，I2Cに使用するピンが6番ピンと7番ピンなのに対して，
+現在の”Arduino Mbed OS RP2040 Boards”でI2Cに使用するピンは，デフォルトで4番ピン，5番ピンとなっています．   
+（残念なことにSeeed XIAO RP2040では5番ピンは外部に引き出されていません．）   
+そのため，このプログラムはボードマネージャー”Arduino Mbed OS RP2040 Boards”でコンパイルすることは可能ですが，I2Cに使用するピンが違うのでうまく作動しません．   
+また，このボードマネージャーの開発者は，ユーザーがプログラム中でI2Cに使用するピンを自由に変えることができるようにする気はないようです．   
+Wireの代わりにWire1を使えば，6番ピンと7番ピンをI2Cで使えますが，使用しているライブラリーがWire1に対応していません．   
+これを回避して，Seeed XIAO RP2040で使用するには，ボードマネージャー”Arduino Mbed OS RP2040 Boards”自身のファイルの一部分を書き換える必要があります．   
+これにより，ボードマネージャー”Arduino Mbed OS RP2040 Boards”を使ってコンパイルし，Seeed XIAO RP2040で作動させることが出来るようになります．   
+例えばMAC OSのArduino IDEの1.8.19では,   
+“/Users/ユーザー名/Library/Arduino15/packages/arduino/hardware/mbed_rp2040/4.0.2/variants/RASPBERRY_PI_PICO/pins_arduino.h”   
+WINDOWSのArduino IDEの1.8.19のインストーラ版では,  
+“C:\Users\ユーザー名\AppData\Local\Arduino15\packages\arduino\hardware\mbed_rp2040\4.0.2\variants\RASPBERRY_PI_PICO\pins_arduino.h”   
+にある”pins_arduino.h”ファイルの中身を一部書き換えます．   
+ここで，”4.0.2”はボードマネージャーのヴァージョンを示しています．   
+
+”pins_arduino.h”は使用するピンの指定やピンの名前付けなどの設定ファイル（ヘッダーファイル）です．   
+このファイルの   
+// Wire   
+#define PIN_WIRE_SDA        (4u)   
+#define PIN_WIRE_SCL        (5u)   
+の部分を   
+// Wire   
+#define PIN_WIRE_SDA        (6u)   
+#define PIN_WIRE_SCL        (7u)   
+に変更します．   
+これは，I2Cで使用するSDAピンとSCLピンについて，それぞれ4番ピンと5番ピンだったのを，6番ピンと7番ピンに変更することを意味します．   
+この変更によって，Seeed XIAO RP2040で使用できるようになります．   
+ファイルを書き換えた後は，Arduino IDEを再立ち上げして，ファイルの変更が確実に有効になってからコンパイルすると良いでしょう．   
