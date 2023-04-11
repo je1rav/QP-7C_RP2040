@@ -259,13 +259,13 @@ WINDOWSのArduino IDEの1.8.19のインストーラ版では,
 
 #### Seeed XIAO RP2040用のArduino IDEスケッチは"QP-7C_RP2040_super.ino"です．  
 	ボードマネージャーは，Raspberry Pi Pico用の公式ボードマネージャー”Arduino Mbed OS RP2040 Boards”を使いました． 
-	“QP-7Cミニ送信機とRP2040を使ったデジタルモードトランシーバー の追加8”に記載していますが，Seeed XIAO RP2040用のMbed対応ボードマネージャーは開発中止になり使用できません． 
+	“QP-7Cミニ送信機とRP2040を使ったデジタルモードトランシーバー の追加7”に記載していますが，Seeed XIAO RP2040用のMbed対応ボードマネージャーは開発中止になり使用できません． 
 	このため，止むを得ず”Arduino Mbed OS RP2040 Boards”を使用するのですが，そのままではI2Cが正しく動きません． 
 	”Arduino Mbed OS RP2040 Boards”をSeeed XIAO RP2040で使用するには，同ボードマネージャーの中の”pins_arduino.h”ファイルの一部を変更する必要があります． 
-	（“QP-7Cミニ送信機とRP2040を使ったデジタルモードトランシーバー の追加8”を参照）   
+	（“QP-7Cミニ送信機とRP2040を使ったデジタルモードトランシーバー の追加7”を参照）   
 
 #### プログラムのSi5351aの発振周波数，BFO周波数の調整．
-	https://github.com/je1rav/QP-7C QP-7Cミニ送信機の改造（その5）」を参考にして，調整して下さい． 
+	"https://github.com/je1rav/QP-7C QP-7Cミニ送信機の改造（その5）"を参考にして，調整して下さい． 
 
 #### 必要部品(2022年3月1日時点の価格)  
 	QP-7Cキット：CRkits共同購入プロジェクト，1820円 + 180円（送料）　http://jl1kra.sakura.ne.jp/QP-7C.html  
