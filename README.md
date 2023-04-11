@@ -233,3 +233,55 @@ WINDOWSのArduino IDEの1.8.19のインストーラ版では,
 これは，I2Cで使用するSDAピンとSCLピンについて，それぞれ4番ピンと5番ピンだったのを，6番ピンと7番ピンに変更することを意味します．   
 この変更によって，Seeed XIAO RP2040で使用できるようになります．   
 ファイルを書き換えた後は，Arduino IDEを再立ち上げして，ファイルの変更が確実に有効になってからコンパイルすると良いでしょう．   
+
+
+## QP-7Cミニ送信機とRP2040を使ったデジタルモードトランシーバー の追加8(2023/4/11)   
+### 受信部のスーパーヘテロダイン化   
+受信部を，”https://github.com/je1rav/QP-7C QP-7Cミニ送信機の改造（その5）”と同様にスーパーヘテロダイン化しました．  
+ダイレクトコンバージョン版と比較して，少し部品は増えましたが，感度が上昇し，nkHz(n=1,2,3)に現れていたノイズが見えなくなりました．  
+放送波の通り抜けも減少していると思われます．  
+それ以外は，ダイレクトコンバージョン版と同じですので，使用法などはそちらを参照してください．  
+
+#### 回路図およびプリント基板
+回路図は，  
+![回路図pdfファイル](images/QP-7C_RP2040_super_diagram.pdf)  
+セラミックフィルターは1段にしました．  
+受信はSi5351aを局発とし，CD2003GP(TA2003P)をスーパーヘテロダインで使用し，中間周波セラミックフィルター1段を通過後にBFO信号を注入しています．  
+検波後の音響出力(DET_OUT)をRP2040のアナログ入力A0ピンに入力しています．  
+送信部電源をUSBからかあるいは外部電源からか選べるようにピンをつけました．  
+基板の写真  
+![プリント基板の写真](images/QP-7C_RP2040_super_1.png)   
+部品をつけた状態  
+![途中基板の写真](images/QP-7C_RP2040_super_2.png)  
+![最終基板の写真](images/QP-7C_RP2040_super_3.png) 
+
+#### プリント基板の Kicadのファイルは"QP-7C_RP2040_super_kicad.zip"で，ガーバーファイル(JLCPCB用)は"QP-7C_RP2040_super_gerber.zip"です．  
+
+#### Seeed XIAO RP2040用のArduino IDEスケッチは"QP-7C_RP2040_super.ino"です．  
+	ボードマネージャーは，Raspberry Pi Pico用の公式ボードマネージャー”Arduino Mbed OS RP2040 Boards”を使いました． 
+	“QP-7Cミニ送信機とRP2040を使ったデジタルモードトランシーバー の追加8”に記載していますが，Seeed XIAO RP2040用のMbed対応ボードマネージャーは開発中止になり使用できません． 
+	このため，止むを得ず”Arduino Mbed OS RP2040 Boards”を使用するのですが，そのままではI2Cが正しく動きません． 
+	”Arduino Mbed OS RP2040 Boards”をSeeed XIAO RP2040で使用するには，同ボードマネージャーの中の”pins_arduino.h”ファイルの一部を変更する必要があります． 
+	（“QP-7Cミニ送信機とRP2040を使ったデジタルモードトランシーバー の追加8”を参照）   
+
+#### プログラムのSi5351aの発振周波数，BFO周波数の調整．
+	https://github.com/je1rav/QP-7C QP-7Cミニ送信機の改造（その5）」を参考にして，調整して下さい． 
+
+#### 必要部品(2022年3月1日時点の価格)  
+	QP-7Cキット：CRkits共同購入プロジェクト，1820円 + 180円（送料）　http://jl1kra.sakura.ne.jp/QP-7C.html  
+	CD2003GP：たとえばaitendo，150円　https://www.aitendo.com/product/1528
+	Seeed Xiao RP2040：たとえば秋月電子 830円　https://akizukidenshi.com/catalog/g/gM-17044/   
+	秋月電子Si5351モジュール：秋月電子，500円　https://akizukidenshi.com/catalog/g/gK-10679/  
+	LTM455IW or LTM450IW：2個　秋月電子，1個110円(LTM455IW) or 10個300円(LTM450IW) https://akizukidenshi.com/catalog/g/gP-16374/ or https://akizukidenshi.com/catalog/g/gP-16052/
+	INKA114AS1-T112(Tx-Rx切替用)：1個　秋月電子，40円　https://akizukidenshi.com/catalog/g/gI-14775/
+	2.1ｍｍ標準ＤＣジャック 基板取付用MJ-179PHＭ：秋月電子，40円　https://akizukidenshi.com/catalog/g/gC-06568/  
+	タクトスイッチ：秋月電子，15円　https://akizukidenshi.com/catalog/g/gP-17166/
+	16ピンICソケット（CD2003GP用）：1個
+	コンデンサ470μF(電源用）：1個（電解コンデンサー）  
+	コンデンサ106（CD2003のAGC用）： 1個（積層セラミックコンデンサー）    　　
+	コンデンサ105（INKA114AS1-T112用，電源用など）： 2個（積層セラミックコンデンサー）    　　
+	コンデンサ104（CD2003のAM/FM切り替え端子用，電源用など）： 3個（積層セラミックコンデンサー）    　　
+	抵抗　10kΩ(INKA114AS1-T112用）：1個    　　
+	抵抗　47Ω(CD2003局発注入用）：1個  
+	抵抗　100Ω(CD2003 BFO注入用）：1個  
+	抵抗　3.3Ω(CD2003 BFO注入用）：1個  
