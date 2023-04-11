@@ -68,7 +68,7 @@ QP-7CキットのDIY7の代わりにFCZコイルを使用して他のバンド�
 ![途中基板の写真](images/QP-7C_RP2040_2.png)  
 ![最終基板の写真](images/QP-7C_RP2040_3.png) 
 
-#### Kicadのファイルは"QP-7C_RP2040.kicad.zip"で，ガーバーファイル(JLCPCB用)は"QP-7C_RP2040_gerber.zip"です．  
+#### Kicadのファイルは"QP-7C_RP2040_kicad.zip"で，ガーバーファイル(JLCPCB用)は"QP-7C_RP2040_gerber.zip"です．  
 	今回は，JLCPCBで基板作成を行いました(5枚で$2.00，最安送料$1.01，2022年12月1日現在)． 
 
 ### ファームウェア
