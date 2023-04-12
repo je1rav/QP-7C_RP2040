@@ -263,7 +263,8 @@ void transmit(int64_t freq){
     si5351.output_enable(SI5351_CLK1, 0);   //RX osc. off
   #ifdef Superheterodyne
     si5351.output_enable(SI5351_CLK2, 0);   //BFO osc. off
-  #endif    si5351.output_enable(SI5351_CLK0, 1);   //TX osc. on
+  #endif    
+    si5351.output_enable(SI5351_CLK0, 1);   //TX osc. on
     Tx_Status=1;
     digitalWrite(pin_RED, 0);
     digitalWrite(pin_GREEN, 1);
